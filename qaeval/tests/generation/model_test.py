@@ -1,11 +1,14 @@
+import os
+import pytest
 import unittest
 
 from qaeval.generation.model import QuestionGenerationModel
 
 
+@pytest.mark.skipif('GENERATION_MODEL' not in os.environ, reason='Generation model environment variable not set')
 class TestGenerationModel(unittest.TestCase):
     def test_generation(self):
-        model = QuestionGenerationModel('/shared/ddeutsch/qaeval/experiments/generation/model/model.tar.gz')
+        model = QuestionGenerationModel(os.environ['GENERATION_MODEL'])
 
         # "The superjumbo Airbus A380"
         question = model.generate('The superjumbo Airbus A380 , the world \'s largest commercial airliner , took off Wednesday into cloudy skies over southwestern France for its second test flight .',
