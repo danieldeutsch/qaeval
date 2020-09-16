@@ -23,8 +23,10 @@ from qaeval.generation.util import ALL_SPECIAL_TOKENS
 class QuestionGenerationModel(object):
     def __init__(self,
                  model_path: str,
-                 cuda_device: int = 0):
+                 cuda_device: int = 0,
+                 batch_size: int = 8):
         self.predictor = Predictor.from_path(model_path, predictor_name='question_generation', cuda_device=cuda_device)
+        self.batch_size = batch_size
 
     def generate(self, text: str, start: int, end: int) -> str:
         return self.generate_all([(text, start, end)])[0]
@@ -37,7 +39,11 @@ class QuestionGenerationModel(object):
             'start': start,
             'end': end
         })
-        outputs = self.predictor.predict_batch_json(input_jsons)
+        outputs = []
+        for i in range(0, len(input_jsons), self.batch_size):
+            batch = input_jsons[i:i + self.batch_size]
+            outputs.extend(self.predictor.predict_batch_json(batch))
+        assert len(input_jsons) == len(outputs)
         return [output['predicted_question'] for output in outputs]
 
 
