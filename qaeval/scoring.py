@@ -64,37 +64,3 @@ def score_multiple_references(answers_list: List[List[str]],
     em = sum(ems) / len(ems)
     f1 = sum(f1s) / len(f1s)
     return em, f1
-
-
-def score_all(answers_list: List[List[str]],
-              predictions_list: List[List[str]],
-              probabilities_list: List[List[float]],
-              null_probabilities_list: List[List[float]]) -> Tuple[float, float]:
-    """
-    Calculates the exact-match and F1 scores for multiple candidate summaries based on answers to questions generated from
-    1 reference summary.
-    """
-    # Just average over everything
-    return score_multiple_references(answers_list, predictions_list, probabilities_list, null_probabilities_list)
-
-
-def score_all_multiple_references(answers_lists: List[List[List[str]]],
-                                  predictions_lists: List[List[List[str]]],
-                                  probabilities_lists: List[List[List[float]]],
-                                  null_probabilities_lists: List[List[List[float]]]) -> Tuple[float, float]:
-    """
-    Calculates the exact-match and F1 scores for multiple candidate summaries based on answers to questions generated from
-    multiple reference summaries.
-    """
-    ems = []
-    f1s = []
-    for answers_list, predictions_list, probabilities_list, null_probabilities_list in zip(answers_lists, predictions_lists,
-                                                                                           probabilities_lists, null_probabilities_lists):
-        em, f1 = score_multiple_references(answers_list, predictions_list, probabilities_list, null_probabilities_list)
-        ems.append(em)
-        f1s.append(f1)
-    return list(zip(ems, f1s))
-
-    em = sum(ems) / len(ems)
-    f1 = sum(f1s) / len(f1s)
-    return em, f1
