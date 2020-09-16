@@ -9,7 +9,7 @@ NER_STRATEGY = 'ner'
 ALL_STRATEGY = 'all'
 STRATEGIES = [NP_CHUNKS_STRATEGY, MAX_NP_STRATEGY, NER_STRATEGY, ALL_STRATEGY]
 
-AnswerOffsets = namedtuple('Answer', ['start', 'end', 'sent_start', 'sent_end'])
+AnswerOffsets = namedtuple('Answer', ['start', 'end', 'sent_start', 'sent_end', 'text'])
 
 
 class AnswerSelector(object):
@@ -22,7 +22,7 @@ class AnswerSelector(object):
     def _get_np_chunks_answers(self, sentence: Span) -> List[AnswerOffsets]:
         chunks = []
         for chunk in sentence.noun_chunks:
-            chunks.append(AnswerOffsets(chunk.start_char, chunk.end_char, sentence.start_char, sentence.end_char))
+            chunks.append(AnswerOffsets(chunk.start_char, chunk.end_char, sentence.start_char, sentence.end_char, str(chunk)))
         return chunks
 
     def _get_max_np_answers(self, sentence: Span) -> List[AnswerOffsets]:
@@ -54,7 +54,7 @@ class AnswerSelector(object):
                 if num_tokens <= 7:
                     recurse = False
                     span = sentence[min_index - sent_start_index:max_index + 1 - sent_start_index]
-                    nps.append(AnswerOffsets(span.start_char, span.end_char, sentence.start_char, sentence.end_char))
+                    nps.append(AnswerOffsets(span.start_char, span.end_char, sentence.start_char, sentence.end_char, str(span)))
 
             if recurse:
                 # Otherwise, process all of this node's children
@@ -69,7 +69,7 @@ class AnswerSelector(object):
         ners = []
         for entity in sentence.ents:
             if entity.label_ in ['PERSON', 'NORP', 'FAC', 'ORG', 'GPE', 'LOC', 'EVENT', 'WORK_OF_ART']:
-                ners.append(AnswerOffsets(entity.start_char, entity.end_char, sentence.start_char, sentence.end_char))
+                ners.append(AnswerOffsets(entity.start_char, entity.end_char, sentence.start_char, sentence.end_char, str(entity)))
         return ners
 
     def _get_all_answers(self, sentence: Span) -> List[AnswerOffsets]:
