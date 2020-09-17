@@ -30,7 +30,8 @@ def _calculate_f1(answer: str,
 def score(answers: List[str],
           predictions: List[str],
           probabilities: List[float],
-          null_probabilities: List[float]) -> Tuple[float, float]:
+          null_probabilities: List[float],
+          return_all_scores: bool = False) -> Tuple[float, float]:
     """
     Calculates the exact-match and F1 scores for a candidate summary based on answers to questions generated from
     1 reference summary.
@@ -43,24 +44,39 @@ def score(answers: List[str],
 
     em = sum(ems) / len(ems)
     f1 = sum(f1s) / len(f1s)
-    return em, f1
+    if return_all_scores:
+        return em, f1, ems, f1s
+    else:
+        return em, f1
 
 
 def score_multiple_references(answers_list: List[List[str]],
                               predictions_list: List[List[str]],
                               probabilities_list: List[List[float]],
-                              null_probabilities_list: List[List[float]]) -> Tuple[float, float]:
+                              null_probabilities_list: List[List[float]],
+                              return_all_scores: bool = False) -> Tuple[float, float]:
     """
     Calculates the exact-match and F1 scores for a candidate summary based on answers to questions generated from
     multiple reference summaries.
     """
+    # Reference-level scores
     ems = []
     f1s = []
+
+    # question-level score lists
+    ems_list = []
+    f1s_list = []
+
     for answers, predictions, probabilities, null_probabilities in zip(answers_list, predictions_list, probabilities_list, null_probabilities_list):
-        em, f1 = score(answers, predictions, probabilities, null_probabilities)
+        em, f1, ref_em, ref_f1 = score(answers, predictions, probabilities, null_probabilities, return_all_scores=True)
         ems.append(em)
         f1s.append(f1)
+        ems_list.append(ref_em)
+        f1s_list.append(ref_f1)
 
     em = sum(ems) / len(ems)
     f1 = sum(f1s) / len(f1s)
-    return em, f1
+    if return_all_scores:
+        return em, f1, ems_list, f1s_list
+    else:
+        return em, f1
