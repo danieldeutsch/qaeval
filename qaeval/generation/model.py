@@ -1,5 +1,6 @@
 # Implementation largely based on https://github.com/allenai/allennlp-models/pull/35/
 
+import math
 import torch
 import torch.nn.functional as F
 from allennlp.data import Vocabulary
@@ -11,6 +12,7 @@ from allennlp.nn.util import sequence_cross_entropy_with_logits
 from allennlp.predictors import Predictor
 from overrides import overrides
 from transformers import BartForConditionalGeneration
+from tqdm import tqdm
 from typing import Any, Dict, List, Tuple
 
 # Dataset reader and predictor imports are necessary to find the classes when the
@@ -40,7 +42,8 @@ class QuestionGenerationModel(object):
             'end': end
         })
         outputs = []
-        for i in range(0, len(input_jsons), self.batch_size):
+        num_batches = int(math.ceil(len(input_jsons) / self.batch_size))
+        for i in tqdm(range(0, len(input_jsons), self.batch_size), total=num_batches, desc='Generating questions'):
             batch = input_jsons[i:i + self.batch_size]
             outputs.extend(self.predictor.predict_batch_json(batch))
         assert len(input_jsons) == len(outputs)
