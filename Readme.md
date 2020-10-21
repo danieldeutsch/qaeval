@@ -2,7 +2,7 @@
 This repository contains the code for the QAEval metric from [Towards Question-Answering as an Automatic Metric for Evaluating the Content Quality of a Summary](http://arxiv.org/abs/2010.00490).
 We have included here only the minimal amount of code to run the metric and does not include the code to run the experiments in the paper.
 
-The easiest way to run the metric end-to-end is to use the wrapper implementation included in [SacreROUGE](https://github.com/danieldeutsch/sacrerouge).
+The easiest way to run the metric end-to-end is to use the wrapper implementation included in [SacreROUGE](https://github.com/danieldeutsch/sacrerouge/blob/master/doc/metrics/qaeval.md).
 
 ## Known Differences from Paper
 There are several known differences between the implementation here and the one we used for the experiments in the paper.
