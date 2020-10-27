@@ -58,7 +58,7 @@ class _QuestionGenerationModel(Model):
                  max_decoding_steps: int = 100,
                  beam_size: int = 4) -> None:
         super().__init__(vocab)
-        self.bart = BartForConditionalGeneration.from_pretrained(model_name, output_past=True)
+        self.bart = BartForConditionalGeneration.from_pretrained(model_name)
         self.tokenizer = PretrainedTransformerTokenizer(model_name)
 
         # Increase the size of Bart's vocabulary to account for the new special
