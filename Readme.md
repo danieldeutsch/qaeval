@@ -4,6 +4,8 @@ We have included here only the minimal amount of code to run the metric and does
 
 The easiest way to run the metric end-to-end is to use the wrapper implementation included in [SacreROUGE](https://github.com/danieldeutsch/sacrerouge/blob/master/doc/metrics/qaeval.md).
 
+The pretrained question generation model can be downloaded [here](https://drive.google.com/file/d/1vVhRgLtsQDAOmxYhY5PMPnxxHUyCOdQU/view?usp=sharing) and the pretrained question answering model can be downloaded [here](https://drive.google.com/file/d/1q2Z3FPP9AYNz0RJKHMlaweNhmLQoyPA8/view?usp=sharing).
+
 ## Known Differences from Paper
 There are several known differences between the implementation here and the one we used for the experiments in the paper.
 
