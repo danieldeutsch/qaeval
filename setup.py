@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='qaeval',
-    version='0.0.4',
+    version='0.0.5',
     author='Daniel Deutsch',
     description='A package for evaluating the content of summaries through question-answering',
     url='https://github.com/danieldeutsch/qaeval',
