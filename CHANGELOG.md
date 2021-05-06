@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 ### Added
+- Added "silent" options for the question generation and answering models
+
+## [v0.0.5](https://github.com/danieldeutsch/qaeval/releases/tag/0.0.5) - 2021-01-02
+### Added
 - Added scoring predictions with [LERC](https://arxiv.org/abs/2010.03636)
 
 ### Changed
