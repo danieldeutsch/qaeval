@@ -32,7 +32,8 @@ class QuestionAnsweringModel(object):
     def __init__(self,
                  model_dir: str,
                  cuda_device: int = 0,
-                 batch_size: int = 8) -> None:
+                 batch_size: int = 8,
+                 silent: bool = True) -> None:
         self.config = AutoConfig.from_pretrained(model_dir)
         self.tokenizer = AutoTokenizer.from_pretrained(model_dir, do_lower_case=True)
         self.model = AutoModelForQuestionAnswering.from_pretrained(model_dir, config=self.config)
@@ -44,6 +45,7 @@ class QuestionAnsweringModel(object):
         self.batch_size = batch_size
         self.max_seq_length = 384
         self.doc_stride = 128
+        self.silent = silent
 
     def _to_list(self, tensor):
         return tensor.detach().cpu().tolist()
@@ -269,7 +271,8 @@ class QuestionAnsweringModel(object):
             max_query_length=64,
             is_training=False,
             return_dataset="pt",
-            threads=1
+            threads=1,
+            tqdm_enabled=not self.silent
         )
 
         eval_sampler = SequentialSampler(dataset)
@@ -277,7 +280,11 @@ class QuestionAnsweringModel(object):
 
         self.model.eval()
         all_results = []
-        for batch in tqdm(eval_dataloader, desc="Evaluating"):
+        generator = eval_dataloader
+        if not self.silent:
+            tqdm(generator, desc='Evaluating')
+
+        for batch in generator:
             if self.cuda_device >= 0:
                 batch = tuple(t.to(self.cuda_device) for t in batch)
 
