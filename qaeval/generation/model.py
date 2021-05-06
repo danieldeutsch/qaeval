@@ -26,9 +26,11 @@ class QuestionGenerationModel(object):
     def __init__(self,
                  model_path: str,
                  cuda_device: int = 0,
-                 batch_size: int = 8):
+                 batch_size: int = 8,
+                 silent: bool = True):
         self.predictor = Predictor.from_path(model_path, predictor_name='question_generation', cuda_device=cuda_device)
         self.batch_size = batch_size
+        self.silent = silent
 
     def generate(self, text: str, start: int, end: int) -> str:
         return self.generate_all([(text, start, end)])[0]
@@ -43,7 +45,12 @@ class QuestionGenerationModel(object):
         })
         outputs = []
         num_batches = int(math.ceil(len(input_jsons) / self.batch_size))
-        for i in tqdm(range(0, len(input_jsons), self.batch_size), total=num_batches, desc='Generating questions'):
+
+        generator = range(0, len(input_jsons), self.batch_size)
+        if not self.silent:
+            generator = tqdm(generator, total=num_batches, desc='Generating questions')
+
+        for i in generator:
             batch = input_jsons[i:i + self.batch_size]
             outputs.extend(self.predictor.predict_batch_json(batch))
         assert len(input_jsons) == len(outputs)
