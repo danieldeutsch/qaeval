@@ -41,6 +41,35 @@ class QuestionAnsweringModel(object):
         return tensor.detach().cpu().tolist()
 
     def answer(self, question: str, context: str, return_offsets: bool = False) -> Prediction:
+        """
+        Returns a tuple of (prediction, probability, null_probability). If `return_offsets = True`, the tuple
+        will include rough character offsets of where the prediction is in the context. Because the tokenizer that
+        the QA model uses does not support returning the character offsets from the BERT tokenization, we cannot
+        directly provide exactly where the answer came from. However, the offsets should be pretty close to the
+        prediction, and the prediction should be a substring of the offsets (modulo whitespace).
+
+        The `SquadExample` class maintains a list of whitespace separated tokens `doc_tokens` and a mapping
+        from the context string characters to the token indices `char_to_word_offset`. Whitespace
+        is included in the previous token. The `squad_convert_example_to_features` method takes each of these
+        tokens and breaks it into the subtokens with the transformers tokenizer, which are passed into the model.
+        It also keeps a mapping from the subtokens to the `doc_tokens` called `tok_to_orig_index`. The QA model
+        predicts a span in the subtokens. In the `_get_char_offsets` method, we use these data structures to map
+        from the subtoken span to character offsets. However, we cannot separate subtokens, so they are merged together.
+        See the below example
+
+            context: " My name is  Dan!"
+            doc_tokens: [My, name, is, Dan!]
+            char_to_word_offset: [-1, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]
+            subtokens: [My, name, is, Dan, ##!]
+            tok_to_orig_index: [0, 1, 2, 3, 3]
+
+            prediction: "name is Dan"
+            prediction subtokens: [name, is, Dan]
+            prediction in doc_tokens: [name, is, Dan!]
+            prediction in context: "name is  Dan!"
+
+        The prediction includes the extra whitespace between "is" and "Dan" as well as the "!"
+        """
         return self.answer_all([(question, context)], return_offsets=return_offsets)[0]
 
     def answer_all(self,
