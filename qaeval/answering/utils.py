@@ -15,6 +15,7 @@ def _is_whitespace(c):
 
 def _get_char_offsets(example, pred_start, pred_end):
     if pred_start is None or pred_end is None:
+        # This could happen if there's an edge case with no valid predictions. See where the prediction is "empty"
         return None, None
 
     token_to_char_start = {}
