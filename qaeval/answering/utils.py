@@ -14,6 +14,9 @@ def _is_whitespace(c):
 
 
 def _get_char_offsets(example, pred_start, pred_end):
+    if pred_start is None or pred_end is None:
+        return None, None
+
     token_to_char_start = {}
     token_to_char_end = {}
     for char_index, token_index in enumerate(example.char_to_word_offset):
