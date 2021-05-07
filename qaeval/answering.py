@@ -25,7 +25,9 @@ from transformers.data.metrics.squad_metrics import (
 )
 from transformers.data.processors.squad import SquadResult, SquadV1Processor, SquadV2Processor, SquadExample
 
-from typing import List, Tuple
+from typing import List, Tuple, Union
+
+Prediction = Union[Tuple[str, float, float], Tuple[str, float, float, Tuple[int, int]]]
 
 
 class QuestionAnsweringModel(object):
@@ -50,6 +52,33 @@ class QuestionAnsweringModel(object):
     def _to_list(self, tensor):
         return tensor.detach().cpu().tolist()
 
+    def _is_whitespace(self, c):
+        if c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F:
+            return True
+        return False
+
+    def _get_char_offsets(self, example, pred_start, pred_end):
+        token_to_char_start = {}
+        token_to_char_end = {}
+        for char_index, token_index in enumerate(example.char_to_word_offset):
+            if token_index not in token_to_char_start:
+                token_to_char_start[token_index] = char_index
+            token_to_char_end[token_index] = char_index
+
+        # Any whitespace after the token is included in that token. Find the last non-whitespace character
+        for token_index, end in token_to_char_end.items():
+            if token_index == -1:
+                # Whitespace at the beginning is mapped to token -1. We don't care about it
+                continue
+            while self._is_whitespace(example.context_text[end]):
+                end -= 1
+                if end < 0:
+                    break
+            if end < 0:
+                raise Exception(f'Token end is less than 0.')
+            token_to_char_end[token_index] = end
+        return token_to_char_start[pred_start], token_to_char_end[pred_end]
+
     def _compute_predictions_logits_with_null(
             self,
             all_examples,
@@ -59,7 +88,8 @@ class QuestionAnsweringModel(object):
             max_answer_length,
             do_lower_case,
             verbose_logging,
-            version_2_with_negative
+            version_2_with_negative,
+            return_offsets = False
     ):
         example_index_to_features = collections.defaultdict(list)
         for feature in all_features:
@@ -78,6 +108,7 @@ class QuestionAnsweringModel(object):
         scores_diff_json = collections.OrderedDict()
         all_probs = collections.OrderedDict()
         null_scores = collections.OrderedDict()
+        offsets = collections.OrderedDict()
 
         for (example_index, example) in enumerate(all_examples):
             features = example_index_to_features[example_index]
@@ -142,7 +173,7 @@ class QuestionAnsweringModel(object):
             prelim_predictions = sorted(prelim_predictions, key=lambda x: (x.start_logit + x.end_logit), reverse=True)
 
             _NbestPrediction = collections.namedtuple(  # pylint: disable=invalid-name
-                "NbestPrediction", ["text", "start_logit", "end_logit"]
+                "NbestPrediction", ["text", "start_logit", "end_logit", "doc_start", "doc_end"]
             )
 
             seen_predictions = {}
@@ -177,23 +208,29 @@ class QuestionAnsweringModel(object):
                     seen_predictions[final_text] = True
                 else:
                     final_text = ""
+                    orig_doc_start = None
+                    orig_doc_end = None
                     seen_predictions[final_text] = True
 
-                nbest.append(_NbestPrediction(text=final_text, start_logit=pred.start_logit, end_logit=pred.end_logit))
+                nbest.append(_NbestPrediction(text=final_text, start_logit=pred.start_logit, end_logit=pred.end_logit,
+                                              doc_start=orig_doc_start, doc_end=orig_doc_end))
             # if we didn't include the empty option in the n-best, include it
             if version_2_with_negative:
                 if "" not in seen_predictions:
-                    nbest.append(_NbestPrediction(text="", start_logit=null_start_logit, end_logit=null_end_logit))
+                    nbest.append(_NbestPrediction(text="", start_logit=null_start_logit, end_logit=null_end_logit,
+                                                  doc_start=None, doc_end=None))
 
                 # In very rare edge cases we could only have single null prediction.
                 # So we just create a nonce prediction in this case to avoid failure.
                 if len(nbest) == 1:
-                    nbest.insert(0, _NbestPrediction(text="empty", start_logit=0.0, end_logit=0.0))
+                    nbest.insert(0, _NbestPrediction(text="empty", start_logit=0.0, end_logit=0.0, doc_start=None,
+                                                     doc_end=None))
 
             # In very rare edge cases we could have no valid predictions. So we
             # just create a nonce prediction in this case to avoid failure.
             if not nbest:
-                nbest.append(_NbestPrediction(text="empty", start_logit=0.0, end_logit=0.0))
+                nbest.append(_NbestPrediction(text="empty", start_logit=0.0, end_logit=0.0, doc_start=None,
+                                              doc_end=None))
 
             assert len(nbest) >= 1
 
@@ -233,6 +270,8 @@ class QuestionAnsweringModel(object):
                 all_predictions[example.qas_id] = best_non_null_entry.text
                 all_probs[example.qas_id] = best_prob
                 null_scores[example.qas_id] = null_prob
+                offsets[example.qas_id] = self._get_char_offsets(example, best_non_null_entry.doc_start,
+                                                                 best_non_null_entry.doc_end)
 
                 # # predict "" iff the null score - the score of best non-null > threshold
                 # score_diff = score_null - best_non_null_entry.start_logit - (best_non_null_entry.end_logit)
@@ -243,12 +282,17 @@ class QuestionAnsweringModel(object):
                 #     all_predictions[example.qas_id] = best_non_null_entry.text
             all_nbest_json[example.qas_id] = nbest_json
 
-        return all_predictions, all_probs, null_scores
+        output = (all_predictions, all_probs, null_scores)
+        if return_offsets:
+            output = output + (offsets,)
+        return output
 
-    def answer(self, question: str, context: str) -> Tuple[str, float, float]:
-        return self.answer_all([(question, context)])[0]
+    def answer(self, question: str, context: str, return_offsets: bool = False) -> Prediction:
+        return self.answer_all([(question, context)], return_offsets=return_offsets)[0]
 
-    def answer_all(self, input_data: List[Tuple[str, str]]) -> List[Tuple[str, float, float]]:
+    def answer_all(self,
+                   input_data: List[Tuple[str, str]],
+                   return_offsets: bool = False) -> List[Prediction]:
         # Convert all of the instances to squad examples
         examples = []
         for i, (question, context) in enumerate(input_data):
@@ -307,7 +351,7 @@ class QuestionAnsweringModel(object):
 
                 all_results.append(result)
 
-        predictions, prediction_probs, no_answer_probs = self._compute_predictions_logits_with_null(
+        model_predictions = self._compute_predictions_logits_with_null(
             examples,
             features,
             all_results,
@@ -315,11 +359,22 @@ class QuestionAnsweringModel(object):
             30,
             True,
             False,
-            True
+            True,
+            return_offsets=return_offsets
         )
+
+        if return_offsets:
+            predictions, prediction_probs, no_answer_probs, offsets = model_predictions
+        else:
+            predictions, prediction_probs, no_answer_probs = model_predictions
 
         results = []
         for i in range(len(input_data)):
             i = str(i)
-            results.append((predictions[i], prediction_probs[i], no_answer_probs[i]))
+            r = (predictions[i], prediction_probs[i], no_answer_probs[i])
+            if return_offsets:
+                r = r + (offsets[i],)
+            results.append(r)
         return results
+
+
