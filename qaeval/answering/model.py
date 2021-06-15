@@ -11,11 +11,15 @@ from transformers import (
 )
 from transformers.data.processors.squad import SquadResult, SquadExample
 
-from typing import List, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
-from qaeval.answering.utils import compute_predictions_logits_with_null
+from qaeval.answering.utils import compute_predictions_logits_with_null, fix_answer_span, SpanFixError
 
-Prediction = Union[Tuple[str, float, float], Tuple[str, float, float, Tuple[int, int]]]
+Prediction = Union[
+    Tuple[str, float, float],
+    Tuple[str, float, float, Tuple[int, int]],
+    Dict[str, Union[str, float, Tuple[int, int]]],
+]
 
 
 class QuestionAnsweringModel(object):
@@ -40,13 +44,50 @@ class QuestionAnsweringModel(object):
     def _to_list(self, tensor):
         return tensor.detach().cpu().tolist()
 
-    def answer(self, question: str, context: str, return_offsets: bool = False) -> Prediction:
+    def _try_fixing_offsets(
+        self,
+        contexts: List[str],
+        predictions: Dict[str, str],
+        offsets_dict: Dict[str, Tuple[int, int]],
+    ) -> Dict[str, Tuple[int, int]]:
+        """
+        Tries to fix the potentially noisy character offsets of the predictions in the `contexts`.
+        The input and output end indices are exclusive.
+        """
+        new_offsets = {}
+
+        for i, context in enumerate(contexts):
+            index = str(i)
+
+            prediction = predictions[index]
+            pred_start, pred_end = offsets_dict[index]
+            if context is None or prediction is None or pred_start is None or pred_end is None:
+                new_offsets[index] = (pred_start, pred_end)
+            else:
+                span = context[pred_start:pred_end]
+                if span != prediction:
+                    try:
+                        pred_start, pred_end = fix_answer_span(prediction, span, pred_start, pred_end)
+                    except SpanFixError:
+                        pass
+                new_offsets[index] = (pred_start, pred_end)
+        return new_offsets
+
+    def answer(
+        self,
+        question: str,
+        context: str,
+        return_offsets: bool = False,
+        try_fixing_offsets: bool = True,
+    ) -> Prediction:
         """
         Returns a tuple of (prediction, probability, null_probability). If `return_offsets = True`, the tuple
         will include rough character offsets of where the prediction is in the context. Because the tokenizer that
         the QA model uses does not support returning the character offsets from the BERT tokenization, we cannot
         directly provide exactly where the answer came from. However, the offsets should be pretty close to the
-        prediction, and the prediction should be a substring of the offsets (modulo whitespace).
+        prediction, and the prediction should be a substring of the offsets (modulo whitespace). If
+        `return_offsets` and `try_fixing_offsets` are `True`, we will try to fix the character offsets via
+        an alignment. See below.
 
         The `SquadExample` class maintains a list of whitespace separated tokens `doc_tokens` and a mapping
         from the context string characters to the token indices `char_to_word_offset`. Whitespace
@@ -69,12 +110,22 @@ class QuestionAnsweringModel(object):
             prediction in context: "name is  Dan!"
 
         The prediction includes the extra whitespace between "is" and "Dan" as well as the "!"
-        """
-        return self.answer_all([(question, context)], return_offsets=return_offsets)[0]
 
-    def answer_all(self,
-                   input_data: List[Tuple[str, str]],
-                   return_offsets: bool = False) -> List[Prediction]:
+        If `try_fixing_offsets=True`, we will try to fix the character offsets to be correct based on an alignment
+        algorithm. We use the `edlib` python package to create a character alignment between the actual prediction
+        string and the span given by the original offsets. We then update the offsets based on the alignment. If
+        this procedure fails, the original offsets will be returned.
+        """
+        return self.answer_all(
+            [(question, context)], return_offsets=return_offsets, try_fixing_offsets=try_fixing_offsets
+        )[0]
+
+    def answer_all(
+        self,
+        input_data: List[Tuple[str, str]],
+        return_offsets: bool = False,
+        try_fixing_offsets: bool = True,
+    ) -> List[Prediction]:
         # Convert all of the instances to squad examples
         examples = []
         for i, (question, context) in enumerate(input_data):
@@ -148,6 +199,9 @@ class QuestionAnsweringModel(object):
 
         if return_offsets:
             predictions, prediction_probs, no_answer_probs, offsets = model_predictions
+            if try_fixing_offsets:
+                contexts = [context for _, context in input_data]
+                offsets = self._try_fixing_offsets(contexts, predictions, offsets)
         else:
             predictions, prediction_probs, no_answer_probs = model_predictions
 

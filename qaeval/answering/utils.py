@@ -1,4 +1,6 @@
 import collections
+import edlib
+from typing import Tuple
 
 from transformers.data.metrics.squad_metrics import (
     get_final_text,
@@ -14,6 +16,7 @@ def _is_whitespace(c):
 
 
 def _get_char_offsets(example, pred_start, pred_end):
+    # The returned end index will be exclusive
     if pred_start is None or pred_end is None:
         # This could happen if there's an edge case with no valid predictions. See where the prediction is "empty"
         return None, None
@@ -36,7 +39,7 @@ def _get_char_offsets(example, pred_start, pred_end):
                 break
         if end < 0:
             raise Exception(f'Token end is less than 0.')
-        token_to_char_end[token_index] = end
+        token_to_char_end[token_index] = end + 1  # exclusive
     return token_to_char_start[pred_start], token_to_char_end[pred_end]
 
 
@@ -247,3 +250,38 @@ def compute_predictions_logits_with_null(
     if return_offsets:
         output = output + (offsets,)
     return output
+
+
+class SpanFixError(Exception):
+    pass
+
+
+def fix_answer_span(prediction: str, document_span: str, start: int, end: int) -> Tuple[int, int]:
+    """
+    Tries to fix the answer span of the prediction, which may include some extra whitespace or special characters.
+
+    # Parameters
+    - `prediction`: the string output by the QA model
+    - `document_span`: the span in the text given by the maybe noisy offsets. See `QuestionAnsweringModel.answer()`
+    documentation for more information
+    - `start`: the start character offset of `document_span` in the original text
+    - `end`: the *exclusive* end character offset of the `document_span` in the original text
+
+    # Returns
+    The `start` and *exclusive* `end` character offsets of fixed character offsets of `prediction` in the
+    original text.
+    """
+
+    if len(prediction) > len(document_span):
+        raise SpanFixError(f'Unexpected lengths: "{prediction}", "{document_span}"')
+
+    alignment = edlib.align(prediction, document_span, mode='HW', task='path')
+    locations = alignment['locations']
+    if len(locations) != 1:
+        raise SpanFixError(f'Unable to compute span: "{prediction}", "{document_span}"')
+    align_start, align_end = locations[0]
+
+    start += align_start
+    end -= len(document_span) - align_end
+    end += 1
+    return start, end
