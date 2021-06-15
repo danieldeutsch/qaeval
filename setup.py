@@ -16,6 +16,7 @@ setuptools.setup(
     python_requires='>=3.6',
     install_requires=[
         'allennlp==1.1.0',
+        'spacy==2.2.4',
         'torch==1.6.0',
         'transformers==3.0.2',
         'urllib3>=1.25.10'
