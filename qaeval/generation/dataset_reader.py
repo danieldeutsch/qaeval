@@ -43,6 +43,10 @@ class QuestionGenerationDatasetReader(DatasetReader):
                          end: int,
                          question: Optional[str] = None,
                          metadata: Dict[str, Any] = None) -> Instance:
+        """
+        Creates an Instance. `start` and `end` should be the character offsets in `context` of the answer.
+        `end` should be exclusive.
+        """
         fields = {}
         metadata = metadata or {}
 
