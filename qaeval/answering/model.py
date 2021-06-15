@@ -79,6 +79,7 @@ class QuestionAnsweringModel(object):
         context: str,
         return_offsets: bool = False,
         try_fixing_offsets: bool = True,
+        return_dict: bool = False,
     ) -> Prediction:
         """
         Returns a tuple of (prediction, probability, null_probability). If `return_offsets = True`, the tuple
@@ -117,7 +118,8 @@ class QuestionAnsweringModel(object):
         this procedure fails, the original offsets will be returned.
         """
         return self.answer_all(
-            [(question, context)], return_offsets=return_offsets, try_fixing_offsets=try_fixing_offsets
+            [(question, context)], return_offsets=return_offsets,
+            try_fixing_offsets=try_fixing_offsets, return_dicts=return_dict
         )[0]
 
     def answer_all(
@@ -125,6 +127,7 @@ class QuestionAnsweringModel(object):
         input_data: List[Tuple[str, str]],
         return_offsets: bool = False,
         try_fixing_offsets: bool = True,
+        return_dicts: bool = False,
     ) -> List[Prediction]:
         # Convert all of the instances to squad examples
         examples = []
@@ -209,8 +212,19 @@ class QuestionAnsweringModel(object):
         for i in range(len(input_data)):
             i = str(i)
             r = (predictions[i], prediction_probs[i], no_answer_probs[i])
+            if return_dicts:
+                r = {
+                    'prediction': r[0],
+                    'probability': r[1],
+                    'null_probability': r[2],
+                }
+
             if return_offsets:
-                r = r + (offsets[i],)
+                if return_dicts:
+                    r['start'] = offsets[i][0]
+                    r['end'] = offsets[i][1]
+                else:
+                    r = r + (offsets[i],)
             results.append(r)
         return results
 
