@@ -36,6 +36,10 @@ class QuestionGenerationModel(object):
         return self.generate_all([(text, start, end)])[0]
 
     def generate_all(self, inputs: List[Tuple[str, int, int]]) -> List[str]:
+        """
+        Generates a question for each input. The input is a list of tuples of the text and start and ending character
+        offsets of the answer. The ending character offset should be exclusive.
+        """
         input_jsons = []
         for text, start, end in inputs:
             input_jsons.append({
