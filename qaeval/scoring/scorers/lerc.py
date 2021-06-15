@@ -16,13 +16,13 @@ class LERCScorer(Scorer):
         return {'lerc'}
 
     def _score_single_ref(
-            self,
-            context: str,
-            questions: List[str],
-            answers: List[str],
-            predictions: List[str],
-            probabilities: List[float],
-            null_probabilities: List[float]
+        self,
+        context: str,
+        questions: List[str],
+        answers: List[str],
+        predictions: List[str],
+        probabilities: List[float],
+        null_probabilities: List[float]
     ) -> List[Dict[str, float]]:
         input_dicts = []
         indices = []
