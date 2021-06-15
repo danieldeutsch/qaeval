@@ -83,6 +83,16 @@ class AnswerSelector(object):
         return answers
 
     def select(self, text: str) -> List[AnswerOffsets]:
+        """
+        Selects a list of noun phrases from the input `text. Each returned `AnswerOffsets` has:
+            - `start`: the character index in `text` where the noun phrase starts
+            - `end`: the *exclusive* character index in `text` where the noun phrase ends
+            - `sent_start`: the character index in `text` where the sentence that this noun phrase
+                is in starts
+            - `sent_end`: the *exclusive* character index in `text` where the sentence that this
+                noun phrase is in ends
+            - `text`: the noun phrase as a string
+        """
         doc = self.nlp(text)
         answers = []
         for sent in doc.sents:
