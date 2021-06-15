@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added trying to fix the predicted character offsets using an alignment algorithm
 - Added an option to return the QA result as a dict
 
+### Changed
+- Refactored the `Scorer` code to be cleaner
+
 ### Fixed
 - Specifying the spacy version to 2.2.4 in `setup.py`
 
