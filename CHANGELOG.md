@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
+## [v0.0.8](https://github.com/danieldeutsch/qaeval/releases/tag/0.0.8) - 2021-06-15
 ### Added
 - Added trying to fix the predicted character offsets using an alignment algorithm
 - Added an option to return the QA result as a dict
