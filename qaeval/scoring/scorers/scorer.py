@@ -70,7 +70,7 @@ class Scorer(object):
         return instance_scores, question_scores_list
 
     def _ensure_expected_keys(self, expected_keys: Set[str], scores_dicts: List[Dict[str, float]]) -> None:
-        for scores in scores_dicts[1:]:
+        for scores in scores_dicts:
             if expected_keys != scores.keys():
                 raise Exception(f'Unequal keys: {expected_keys}; {scores.keys()}')
 
