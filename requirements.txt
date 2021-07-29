@@ -1,4 +1,5 @@
 allennlp==1.1.0
+click==7.1.2
 edlib
 spacy==2.2.4
 torch==1.6.0
